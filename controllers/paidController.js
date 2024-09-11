@@ -41,7 +41,7 @@ controller.urlFlutter = (req, res) => {
         vads_url_success: 'https://webview_' + username + '.success',
         vads_return_mode: 'GET',
         vads_trans_date: new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14),
-        vads_trans_id: ((Math.floor(Date.now() / 1000)) % 1000000).toString(),
+        vads_trans_id: (Date.now() % 1000000).toString().padStart(6, '0'),
         vads_version: 'V2',
         vads_order_id: orderId,
         vads_language: language,
