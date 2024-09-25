@@ -1,4 +1,4 @@
-const express = require ('express');
+const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 const keys = require("../keys/keys");
@@ -18,12 +18,21 @@ controller.home = (req, res) => {
 
 controller.urlFlutter = (req, res) => {
 
+    // Imprime el body de la solicitud para verificar los datos recibidos
+    console.log("Datos recibidos:", req.body);
+
     const email = req.body['email'];
+    const phone = req.body['phone'];
     const amount = req.body['amount'];
     const currency = req.body['currency'];
     const mode = req.body['mode'];
     const language = req.body['language'];
     const orderId = req.body['orderId'];
+
+    // Asegúrate de que todos los campos requeridos se están recibiendo correctamente
+    if (!email || !phone || !amount || !currency || !mode || !language || !orderId) {
+        return res.status(400).send("Faltan campos requeridos en la solicitud.");
+    }
 
     const params = {
         vads_action_mode: 'INTERACTIVE',
@@ -31,6 +40,7 @@ controller.urlFlutter = (req, res) => {
         vads_ctx_mode: mode,
         vads_currency: currency,
         vads_cust_email: email,
+        vads_cust_phone: phone,
         vads_page_action: 'PAYMENT',
         vads_payment_config: 'SINGLE',
         vads_site_id: username,
@@ -46,56 +56,59 @@ controller.urlFlutter = (req, res) => {
         vads_order_id: orderId,
         vads_language: language,
         vads_redirect_success_timeout: 5
-      };
-      
-    params.signature = getSignature(params, passwordRedirect);
-    
-    axios.post('https://secure.micuentaweb.pe/vads-payment/entry.silentInit.a', new URLSearchParams(params))
-    .then(response => {
-        const responseData = response.data;
-        if (responseData.redirect_url) {
-            res.status(200).send({'redirectionUrl' : responseData.redirect_url })
-        } else {
-            res.status(500)
-        }
-    })
-    .catch(error => {
-        console.error('Error en la comunicación con la pasarela de pago:', error);
-    });
+    };
 
+    // Generamos la firma (signature)
+    params.signature = getSignature(params, passwordRedirect);
+
+    // Realizamos la solicitud a la pasarela de pago
+    axios.post('https://secure.micuentaweb.pe/vads-payment/entry.silentInit.a', new URLSearchParams(params))
+        .then(response => {
+            console.log("Respuesta de la pasarela de pago:", response.data);  // Imprime la respuesta de la pasarela de pago
+            const responseData = response.data;
+            if (responseData.redirect_url) {
+                res.status(200).send({ 'redirectionUrl': responseData.redirect_url });
+            } else {
+                res.status(500).send("Error al obtener la URL de redirección.");
+            }
+        })
+        .catch(error => {
+            console.error('Error en la comunicación con la pasarela de pago:', error.response ? error.response.data : error.message);
+            res.status(500).send('Error al comunicarse con la pasarela de pago');
+        });
 }
 
 function getSignature(params, key) {
     let contentSignature = '';
-  
+
     const sortedParams = Object.keys(params).sort().reduce((result, key) => {
-      result[key] = params[key];
-      return result;
+        result[key] = params[key];
+        return result;
     }, {});
-  
+
     for (const name in sortedParams) {
-      if (name.startsWith('vads_')) {
-        contentSignature += sortedParams[name] + '+';
-      }
+        if (name.startsWith('vads_')) {
+            contentSignature += sortedParams[name] + '+';
+        }
     }
-  
+
     contentSignature += key;
-  
+
     const hmac = crypto.createHmac('sha256', key);
     hmac.update(contentSignature, 'utf8');
     const signature = hmac.digest('base64');
-  
+
     return signature;
 }
 
 controller.ipn = (req, res) => {
-  const signature = req.body['signature'];
+    const signature = req.body['signature'];
 
-  if (signature == getSignature(req.body, passwordRedirect)){
-    res.status(200).send({'response' : req.body['vads_result'] })
-  }else {
-    res.status(500).send( {'response' : 'Es probable un intento de fraude'})
-  }
+    if (signature == getSignature(req.body, passwordRedirect)) {
+        res.status(200).send({ 'response': req.body['vads_result'] });
+    } else {
+        res.status(500).send({ 'response': 'Es probable un intento de fraude' });
+    }
 }
 
 module.exports = controller;
