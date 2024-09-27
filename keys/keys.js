@@ -1,6 +1,6 @@
 const keys = {
     "username" : "22083729",
-    "passwordRedirect": "bMxbmElQ7R81sEuc"
+    "passwordRedirect": "bt3nQ03NqvqBake2"
 }
 
 module.exports = keys
